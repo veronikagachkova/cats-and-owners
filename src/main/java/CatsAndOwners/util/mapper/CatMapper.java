@@ -8,6 +8,7 @@ import CatsAndOwners.model.entity.Cat;
 import CatsAndOwners.model.entity.Owner;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static CatsAndOwners.util.mapper.OwnerMapper.toOwnerShortDto;
@@ -17,12 +18,17 @@ public class CatMapper {
         CatShortDto dto = new CatShortDto();
         dto.setId(cat.getId());
         dto.setName(cat.getName());
+        dto.setGender(cat.getGender());
+        dto.setBirthDate(cat.getBirthDate());
+        dto.setBreed(cat.getBreed());
+        dto.setColor(cat.getColor());
 
         return dto;
     }
 
     public static Cat toEntity(CreateCatDto dto) {
         Cat cat = new Cat();
+        cat.setId(UUID.randomUUID());
         cat.setName(dto.getName());
         cat.setGender(dto.getGender());
         cat.setBirthDate(dto.getBirthDate());

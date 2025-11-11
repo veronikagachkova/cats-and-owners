@@ -1,5 +1,7 @@
 package CatsAndOwners.model.enums;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum CatBreed {
     SIAMESE("Сиамская"),
     BRITISH("Британская"),
@@ -20,6 +22,7 @@ public enum CatBreed {
         this.displayName = displayName;
     }
 
+    @JsonValue
     public String getDisplayName() {
         return displayName;
     }

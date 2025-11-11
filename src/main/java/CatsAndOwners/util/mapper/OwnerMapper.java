@@ -11,6 +11,7 @@ import jakarta.persistence.EntityNotFoundException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class OwnerMapper {
@@ -22,17 +23,20 @@ public class OwnerMapper {
         OwnerShortDto dto = new OwnerShortDto();
         dto.setId(owner.getId());
         dto.setName(owner.getName());
+        dto.setGender(owner.getGender());
+        dto.setBirthDate(owner.getBirthDate());
 
         return dto;
     }
 
     public static Owner toEntity(CreateOwnerDto dto) {
         Owner owner = new Owner();
+        owner.setId(UUID.randomUUID());
         owner.setName(dto.getName());
         owner.setGender(dto.getGender());
         owner.setBirthDate(dto.getBirthDate());
 
-        if (dto.getCats() != null && !dto.getCats().isEmpty()) {
+        if (dto.getCats() != null) {
             List<Cat> cats = dto.getCats().stream()
                     .map(shortDto -> {
                         Cat cat = new Cat();
@@ -48,8 +52,6 @@ public class OwnerMapper {
                     .collect(Collectors.toList());
 
             owner.setCats(cats);
-        } else {
-            owner.setCats(new ArrayList<>());
         }
 
         return owner;

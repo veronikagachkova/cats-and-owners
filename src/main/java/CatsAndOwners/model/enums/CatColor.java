@@ -1,5 +1,7 @@
 package CatsAndOwners.model.enums;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum CatColor {
     BLACK("Черный"),
     WHITE("Белый"),
@@ -18,6 +20,7 @@ public enum CatColor {
         this.displayName = displayName;
     }
 
+    @JsonValue
     public String getDisplayName() {
         return displayName;
     }
