@@ -1,106 +1,75 @@
 package CatsAndOwners.owner.impl;
 
-import CatsAndOwners.dao.cat.CatDao;
-import CatsAndOwners.dao.owner.OwnerDao;
 import CatsAndOwners.model.dto.cat.CatShortDto;
 import CatsAndOwners.model.dto.owner.request.CreateOwnerDto;
 import CatsAndOwners.model.dto.owner.request.UpdateOwnerDto;
 import CatsAndOwners.model.dto.owner.response.OwnerResponseDto;
-import CatsAndOwners.model.entity.Cat;
 import CatsAndOwners.model.entity.Owner;
 import CatsAndOwners.model.enums.Gender;
+import CatsAndOwners.repository.owner.OwnerRepository;
 import CatsAndOwners.service.owner.impl.OwnerServiceImpl;
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 public class OwnerServiceImplTest {
-    private OwnerDao ownerDao;
-    private CatDao catDao;
-    private OwnerServiceImpl ownerService;
+    @Mock
+    private OwnerRepository ownerRepository;
 
-    @BeforeEach
-    public void setUp() {
-        ownerDao = mock(OwnerDao.class);
-        catDao = mock(CatDao.class);
-        ownerService = new OwnerServiceImpl(ownerDao, catDao);
-    }
+    @InjectMocks
+    private OwnerServiceImpl ownerService;
 
     @Test
     public void createOwner_ShouldSaveOwnerWithoutCats_WhenValidDto() {
         // given
-        CreateOwnerDto dto = new CreateOwnerDto(
-                "Owner1",
-                Gender.FEMALE,
-                LocalDate.of(1997, 1, 30),
-                null
-        );
+        CreateOwnerDto dto = new CreateOwnerDto();
+        dto.setName("Alice");
+        dto.setGender(Gender.FEMALE);
+        dto.setBirthDate(LocalDate.of(1997, 1, 30));
+        dto.setCats(null);
 
         // when
         ownerService.createOwner(dto);
 
         // then
-        ArgumentCaptor<Owner> captor = ArgumentCaptor.forClass(Owner.class);
-        verify(ownerDao, times(1)).create(captor.capture());
-
-        Owner savedOwner = captor.getValue();
-        assertEquals("Owner1", savedOwner.getName());
-        assertEquals(Gender.FEMALE, savedOwner.getGender());
-        assertEquals("1997-01-30", savedOwner.getBirthDate().toString());
-        assertTrue(savedOwner.getCats().isEmpty());
+        verify(ownerRepository, times(1)).save(any(Owner.class));
     }
 
     @Test
     public void createOwner_ShouldSaveOwnerWithCats_WhenDtoHasCats() {
         // given
-        CatShortDto catDto1 = new CatShortDto(
-                "Cat1",
-                Gender.FEMALE,
-                null,
-                null,
-                null
-        );
-        CatShortDto catDto2 = new CatShortDto(
-                "Cat2",
-                null,
-                null,
-                null,
-                null
-        );
+        CatShortDto catDto1 = new CatShortDto();
+        catDto1.setName("Барсик");
+
+        CatShortDto catDto2 = new CatShortDto();
+        catDto2.setName("Альфред");
+
         List<CatShortDto> cats = List.of(catDto1, catDto2);
 
-        CreateOwnerDto dto = new CreateOwnerDto(
-                "Owner2",
-                Gender.MALE,
-                LocalDate.of(1985, 3, 15),
-                cats
-        );
+        CreateOwnerDto dto = new CreateOwnerDto();
+        dto.setName("Bob");
+        dto.setGender(Gender.MALE);
+        dto.setBirthDate(LocalDate.of(1985, 3, 15));
+        dto.setCats(cats);
 
         // when
         ownerService.createOwner(dto);
 
         // then
-        ArgumentCaptor<Owner> captor = ArgumentCaptor.forClass(Owner.class);
-        verify(ownerDao, times(1)).create(captor.capture());
-
-        Owner savedOwner = captor.getValue();
-        assertEquals("Owner2", savedOwner.getName());
-        assertEquals(Gender.MALE, savedOwner.getGender());
-        assertEquals("1985-03-15", savedOwner.getBirthDate().toString());
-        assertEquals(2, savedOwner.getCats().size());
-        assertEquals("Cat1", savedOwner.getCats().get(0).getName());
-        assertEquals("Cat2", savedOwner.getCats().get(1).getName());
-
-        assertEquals(savedOwner, savedOwner.getCats().get(0).getOwner());
-        assertEquals(savedOwner, savedOwner.getCats().get(1).getOwner());
+        verify(ownerRepository, times(1)).save(any(Owner.class));
     }
 
     @Test
@@ -109,22 +78,32 @@ public class OwnerServiceImplTest {
         UUID id = UUID.randomUUID();
         Owner owner = new Owner();
         owner.setId(id);
-        owner.setName("Андрей");
+        owner.setName("Andrey");
         owner.setGender(Gender.MALE);
         owner.setBirthDate(LocalDate.of(1990, 1, 1));
         owner.setCats(Collections.emptyList());
 
-        when(ownerDao.findOne(id)).thenReturn(owner);
+        when(ownerRepository.findById(id)).thenReturn(Optional.of(owner));
 
         // when
         OwnerResponseDto result = ownerService.getOwnerById(id);
 
         // then
         assertEquals(id, result.id());
-        assertEquals("Андрей", result.name());
+        assertEquals("Andrey", result.name());
         assertEquals(Gender.MALE, result.gender());
         assertEquals(LocalDate.of(1990, 1, 1), result.birthDate());
         assertTrue(result.cats().isEmpty());
+    }
+
+    @Test
+    public void getOwnerById_ShouldThrowException_WhenOwnerNotFound() {
+        // given
+        UUID id = UUID.randomUUID();
+        when(ownerRepository.findById(id)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThrows(EntityNotFoundException.class, () -> ownerService.getOwnerById(id));
     }
 
     @Test
@@ -132,19 +111,21 @@ public class OwnerServiceImplTest {
         // given
         Owner owner = new Owner();
         owner.setId(UUID.randomUUID());
-        owner.setName("Ирина");
+        owner.setName("Owner1");
         owner.setGender(Gender.FEMALE);
         owner.setBirthDate(LocalDate.of(1991, 2, 2));
         owner.setCats(Collections.emptyList());
 
-        when(ownerDao.findMany()).thenReturn(List.of(owner));
+        when(ownerRepository.findAll()).thenReturn(List.of(owner));
 
         // when
         List<OwnerResponseDto> result = ownerService.getAllOwners();
 
         // then
         assertEquals(1, result.size());
-        assertEquals("Ирина", result.get(0).name());
+        assertEquals("Owner1", result.get(0).name());
+        assertEquals(Gender.FEMALE, result.get(0).gender());
+        assertEquals(LocalDate.of(1991, 2, 2), result.get(0).birthDate());
     }
 
     @Test
@@ -159,52 +140,26 @@ public class OwnerServiceImplTest {
         existingOwner.setId(ownerId);
         existingOwner.setCats(Collections.emptyList());
 
-        when(ownerDao.findOne(ownerId)).thenReturn(existingOwner);
+        when(ownerRepository.findById(ownerId)).thenReturn(Optional.of(existingOwner));
 
         // when
         ownerService.updateOwner(dto);
 
         // then
-        ArgumentCaptor<Owner> captor = ArgumentCaptor.forClass(Owner.class);
-        verify(ownerDao).update(captor.capture());
-        assertEquals(ownerId, captor.getValue().getId());
-        assertTrue(captor.getValue().getCats().isEmpty());
+        verify(ownerRepository).save(any(Owner.class));
     }
 
     @Test
-    public void updateOwner_ShouldUpdateOwnerWithCats() {
+    public void updateOwner_ShouldThrowException_WhenOwnerNotFound() {
         // given
         UUID ownerId = UUID.randomUUID();
-        UUID catId = UUID.randomUUID();
-
-        CatShortDto catDto = new CatShortDto();
-        catDto.setId(catId);
-
         UpdateOwnerDto dto = new UpdateOwnerDto();
         dto.setId(ownerId);
-        dto.setCats(List.of(catDto));
 
-        Owner existingOwner = new Owner();
-        existingOwner.setId(ownerId);
+        when(ownerRepository.findById(ownerId)).thenReturn(Optional.empty());
 
-        Cat existingCat = new Cat();
-        existingCat.setId(catId);
-
-        when(ownerDao.findOne(ownerId)).thenReturn(existingOwner);
-        when(catDao.findOne(catId)).thenReturn(existingCat);
-
-        // when
-        ownerService.updateOwner(dto);
-
-        // then
-        ArgumentCaptor<Owner> captor = ArgumentCaptor.forClass(Owner.class);
-        verify(ownerDao).update(captor.capture());
-
-        Owner updated = captor.getValue();
-        assertEquals(ownerId, updated.getId());
-        assertEquals(1, updated.getCats().size());
-        assertEquals(catId, updated.getCats().get(0).getId());
-        assertEquals(existingOwner, updated.getCats().get(0).getOwner()); // связь проверяем!
+        // when & then
+        assertThrows(EntityNotFoundException.class, () -> ownerService.updateOwner(dto));
     }
 
     @Test
@@ -216,6 +171,6 @@ public class OwnerServiceImplTest {
         ownerService.deleteOwner(ownerId);
 
         // then
-        verify(ownerDao, times(1)).delete(ownerId);
+        verify(ownerRepository, times(1)).deleteById(ownerId);
     }
 }

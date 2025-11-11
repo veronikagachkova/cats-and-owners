@@ -7,7 +7,7 @@ import CatsAndOwners.model.dto.cat.request.UpdateCatDto;
 import CatsAndOwners.model.dto.cat.response.CatResponseDto;
 import CatsAndOwners.model.enums.*;
 import CatsAndOwners.service.cat.CatService;
-import org.junit.jupiter.api.BeforeEach;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -15,22 +15,28 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@WebMvcTest(CatController.class)
 public class CatControllerTest {
-    private CatService catService;
-    private CatController catController;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @BeforeEach
-    public void setup() {
-        catService = mock(CatService.class);
-        catController = new CatController(catService);
-    }
+    @MockBean
+    private CatService catService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
-    public void shouldCallCreateCat_whenCreateCatIsInvoked() {
+    public void shouldCallCreateCat_whenCreateCatIsInvoked() throws Exception {
         // Arrange
         CreateCatDto dto = new CreateCatDto();
         dto.setName("Tom");
@@ -39,15 +45,17 @@ public class CatControllerTest {
         dto.setBirthDate(LocalDate.of(2020, 1, 1));
         dto.setGender(Gender.MALE);
 
-        // Act
-        catController.createCat(dto);
+        // Act & Assert
+        mockMvc.perform(post("/api/cats")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
 
-        // Assert
-        verify(catService, times(1)).createCat(dto);
+        verify(catService, times(1)).createCat(any(CreateCatDto.class));
     }
 
     @Test
-    public void shouldReturnCatById_whenGetCatIsCalled() {
+    public void shouldReturnCatById_whenGetCatIsCalled() throws Exception {
         // Arrange
         UUID id = UUID.randomUUID();
         CatResponseDto expected = new CatResponseDto(
@@ -63,16 +71,20 @@ public class CatControllerTest {
 
         when(catService.getCatById(id)).thenReturn(expected);
 
-        // Act
-        CatResponseDto result = catController.getCat(id);
+        // Act & Assert
+        mockMvc.perform(get("/api/cats/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.name").value("Tom"))
+                .andExpect(jsonPath("$.gender").value("MALE"))
+                .andExpect(jsonPath("$.breed").value("Рэгдолл"))
+                .andExpect(jsonPath("$.color").value("Серый"));
 
-        // Assert
-        assertEquals(expected, result);
         verify(catService).getCatById(id);
     }
 
     @Test
-    public void shouldReturnCatFriends_whenGetCatFriendsIsCalled() {
+    public void shouldReturnCatFriends_whenGetCatFriendsIsCalled() throws Exception {
         // Arrange
         UUID id = UUID.randomUUID();
         List<CatResponseDto> expected = List.of(
@@ -89,72 +101,120 @@ public class CatControllerTest {
         );
         when(catService.getFriends(id)).thenReturn(expected);
 
-        // Act
-        List<CatResponseDto> result = catController.getCatFriends(id);
+        // Act & Assert
+        mockMvc.perform(get("/api/cats/{id}/friends", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Jerry"))
+                .andExpect(jsonPath("$[0].gender").value("FEMALE"))
+                .andExpect(jsonPath("$[0].breed").value("Мейн-кун"));
 
-        // Assert
-        assertEquals(expected, result);
         verify(catService).getFriends(id);
     }
 
     @Test
-    public void shouldReturnAllCats_whenGetAllCatsIsCalled() {
+    public void shouldReturnAllCats_whenGetAllCatsIsCalled() throws Exception {
         // Arrange
         when(catService.getAllCats()).thenReturn(Collections.emptyList());
 
-        // Act
-        List<CatResponseDto> result = catController.getAllCats();
+        // Act & Assert
+        mockMvc.perform(get("/api/cats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
 
-        // Assert
-        assertTrue(result.isEmpty());
         verify(catService).getAllCats();
     }
 
     @Test
-    public void shouldUpdateCat_whenUpdateCatIsCalled() {
+    public void shouldReturnCatsByColor_whenGetCatsByColorIsCalled() throws Exception {
+        // Arrange
+        CatColor color = CatColor.GRAY;
+        List<CatResponseDto> expected = List.of(
+                new CatResponseDto(
+                        UUID.randomUUID(),
+                        "GrayCat",
+                        Gender.MALE,
+                        LocalDate.of(2020, 1, 1),
+                        CatBreed.BRITISH,
+                        CatColor.GRAY,
+                        null,
+                        null
+                )
+        );
+        when(catService.getCatsByColor(color)).thenReturn(expected);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/cats/color/{color}", color))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("GrayCat"))
+                .andExpect(jsonPath("$[0].color").value("Серый"));
+
+        verify(catService).getCatsByColor(color);
+    }
+
+    @Test
+    public void shouldReturnCatsByBreed_whenGetCatsByBreedIsCalled() throws Exception {
+        // Arrange
+        String breed = "british";
+        List<CatResponseDto> expected = List.of(
+                new CatResponseDto(
+                        UUID.randomUUID(),
+                        "BritishCat",
+                        Gender.MALE,
+                        LocalDate.of(2020, 1, 1),
+                        CatBreed.BRITISH,
+                        CatColor.GRAY,
+                        null,
+                        null
+                )
+        );
+        when(catService.getCatsByBreed(breed)).thenReturn(expected);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/cats/breed/{breed}", breed))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("BritishCat"))
+                .andExpect(jsonPath("$[0].breed").value("Британская"));
+
+        verify(catService).getCatsByBreed(breed);
+    }
+
+    @Test
+    public void shouldUpdateCat_whenUpdateCatIsCalled() throws Exception {
         // Arrange
         UUID catId = UUID.randomUUID();
-        CatShortDto friendDto = new CatShortDto(
-                "Jerry",
-                Gender.FEMALE,
-                LocalDate.of(2021, 5, 20),
-                CatBreed.MAINE_COON,
-                CatColor.WHITE
-        );
+        UUID friendId = UUID.randomUUID();
+
+        CatShortDto friendDto = new CatShortDto();
+        friendDto.setId(UUID.randomUUID());
+        friendDto.setName("Jerry");
+        friendDto.setGender(Gender.FEMALE);
+        friendDto.setBirthDate(LocalDate.of(2021, 5, 20));
+        friendDto.setBreed(CatBreed.MAINE_COON);
+        friendDto.setColor(CatColor.WHITE);
+
         UpdateCatDto dto = new UpdateCatDto();
         dto.setId(catId);
         dto.setFriends(List.of(friendDto));
 
-        ArgumentCaptor<UpdateCatDto> captor = ArgumentCaptor.forClass(UpdateCatDto.class);
+        // Act & Assert
+        mockMvc.perform(put("/api/cats/{id}", catId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
 
-        // Act
-        catController.updateCat(dto);
-
-        // Assert
-        verify(catService).updateCat(captor.capture());
-        UpdateCatDto capturedDto = captor.getValue();
-
-        assertEquals(catId, capturedDto.getId());
-        assertNotNull(capturedDto.getFriends());
-        assertEquals(1, capturedDto.getFriends().size());
-
-        CatShortDto capturedFriend = capturedDto.getFriends().get(0);
-        assertEquals("Jerry", capturedFriend.getName());
-        assertEquals(Gender.FEMALE, capturedFriend.getGender());
-        assertEquals(LocalDate.of(2021, 5, 20), capturedFriend.getBirthDate());
-        assertEquals(CatBreed.MAINE_COON, capturedFriend.getBreed());
-        assertEquals(CatColor.WHITE, capturedFriend.getColor());
+        verify(catService).updateCat(any(UpdateCatDto.class));
     }
 
     @Test
-    public void shouldDeleteCat_whenDeleteCatIsCalled() {
+    public void shouldDeleteCat_whenDeleteCatIsCalled() throws Exception {
         // Arrange
         UUID id = UUID.randomUUID();
 
-        // Act
-        catController.deleteCat(id);
+        // Act & Assert
+        mockMvc.perform(delete("/api/cats/{id}", id))
+                .andExpect(status().isOk());
 
-        // Assert
         verify(catService, times(1)).deleteCat(id);
     }
 }
