@@ -1,40 +1,46 @@
 package CatsAndOwners.service.owner.impl;
 
-import CatsAndOwners.dao.cat.CatDao;
-import CatsAndOwners.dao.owner.OwnerDao;
 import CatsAndOwners.model.dto.owner.request.CreateOwnerDto;
 import CatsAndOwners.model.dto.owner.request.UpdateOwnerDto;
 import CatsAndOwners.model.dto.owner.response.OwnerResponseDto;
-import CatsAndOwners.model.entity.Cat;
 import CatsAndOwners.model.entity.Owner;
+import CatsAndOwners.repository.cat.CatRepository;
+import CatsAndOwners.repository.owner.OwnerRepository;
 import CatsAndOwners.service.owner.OwnerService;
 import CatsAndOwners.util.mapper.OwnerMapper;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
+@Service
 public class OwnerServiceImpl implements OwnerService {
-    private final OwnerDao ownerDao;
-    private final CatDao catDao;
+    private final OwnerRepository ownerRepository;
+    private final CatRepository catRepository;
 
-    public OwnerServiceImpl(OwnerDao ownerDao, CatDao catDao) {
-        this.ownerDao = ownerDao;
-        this.catDao = catDao;
+    @Autowired
+    public OwnerServiceImpl(OwnerRepository ownerRepository, CatRepository catRepository) {
+        this.ownerRepository = ownerRepository;
+        this.catRepository = catRepository;
     }
 
     @Override
     public void createOwner(CreateOwnerDto dto) {
-        ownerDao.create(OwnerMapper.toEntity(dto));
+        ownerRepository.save(OwnerMapper.toEntity(dto));
     }
 
     @Override
     public OwnerResponseDto getOwnerById(UUID id) {
-        return OwnerMapper.toDto(ownerDao.findOne(id));
+        Owner owner = ownerRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Хозяин не найден."));
+        return OwnerMapper.toDto(owner);
     }
 
     @Override
     public List<OwnerResponseDto> getAllOwners() {
-        return ownerDao.findMany()
+        return ownerRepository.findAll()
                 .stream()
                 .map(OwnerMapper::toDto)
                 .toList();
@@ -42,13 +48,15 @@ public class OwnerServiceImpl implements OwnerService {
 
     @Override
     public void updateOwner(UpdateOwnerDto dto) {
-        Owner existingOwner = ownerDao.findOne(dto.getId());
-        Owner updatedOwner = OwnerMapper.toEntity(dto, existingOwner, catDao);
-        ownerDao.update(updatedOwner);
+        Owner existingOwner = ownerRepository.findById(dto.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Хозяин не найден."));
+
+        Owner updatedOwner = OwnerMapper.toEntity(dto, existingOwner, catRepository);
+        ownerRepository.save(updatedOwner);
     }
 
     @Override
     public void deleteOwner(UUID id) {
-        ownerDao.delete(id);
+        ownerRepository.deleteById(id);
     }
 }

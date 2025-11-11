@@ -5,8 +5,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,8 +19,8 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Owner {
     @Id
-    @GeneratedValue
-    @Column(name = "owner_id", updatable = false, nullable = false)
+    @UuidGenerator
+    @Column(name = "owner_id", columnDefinition = "UUID")
     private UUID id;
 
     private String name;
@@ -30,5 +32,5 @@ public class Owner {
     private LocalDate birthDate;
 
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL)
-    private List<Cat> cats;
+    private List<Cat> cats = new ArrayList<>();
 }

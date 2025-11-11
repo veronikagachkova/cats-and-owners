@@ -1,12 +1,13 @@
 package CatsAndOwners.util.mapper;
 
-import CatsAndOwners.dao.cat.CatDao;
 import CatsAndOwners.model.dto.owner.OwnerShortDto;
 import CatsAndOwners.model.dto.owner.request.CreateOwnerDto;
 import CatsAndOwners.model.dto.owner.request.UpdateOwnerDto;
 import CatsAndOwners.model.dto.owner.response.OwnerResponseDto;
 import CatsAndOwners.model.entity.Cat;
 import CatsAndOwners.model.entity.Owner;
+import CatsAndOwners.repository.cat.CatRepository;
+import jakarta.persistence.EntityNotFoundException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,23 +55,21 @@ public class OwnerMapper {
         return owner;
     }
 
-    public static Owner toEntity(UpdateOwnerDto dto, Owner existingOwner, CatDao catDao) {
-        if (dto.getCats() != null && !dto.getCats().isEmpty()) {
-            List<Cat> cats = dto.getCats().stream()
-                    .map(catDto -> {
-                        Cat cat = catDao.findOne(catDto.getId());
-                        if (cat == null) {
-                            throw new IllegalArgumentException("Кот с ID " + catDto.getId() + " не найден");
-                        }
-                        cat.setOwner(existingOwner); // Привязываем к хозяину
-                        return cat;
-                    })
-                    .toList();
-            existingOwner.setCats(cats);
-        } else {
-            existingOwner.setCats(new ArrayList<>());
-        }
+    public static Owner toEntity(UpdateOwnerDto dto, Owner existingOwner, CatRepository catRepository) {
+        existingOwner.getCats().forEach(cat -> cat.setOwner(null));
+        existingOwner.getCats().clear();
 
+        List<Cat> cats = dto.getCats().stream()
+                .map(shortDto -> {
+                    Cat cat = catRepository.findById(shortDto.getId())
+                            .orElseThrow(() -> new EntityNotFoundException("Кот не найден: " + shortDto.getId()));
+
+                    cat.setOwner(existingOwner);
+                    return cat;
+                })
+                .collect(Collectors.toList());
+
+        existingOwner.getCats().addAll(cats);
         return existingOwner;
     }
 

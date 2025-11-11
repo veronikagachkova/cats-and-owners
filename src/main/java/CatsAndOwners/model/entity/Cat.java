@@ -7,8 +7,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,8 +21,8 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Cat {
     @Id
-    @GeneratedValue
-    @Column(name = "cat_id", updatable = false, nullable = false)
+    @UuidGenerator
+    @Column(name = "cat_id", columnDefinition = "UUID")
     private UUID id;
 
     private String name;
@@ -47,5 +49,5 @@ public class Cat {
             joinColumns = @JoinColumn(name = "cat_id"),
             inverseJoinColumns = @JoinColumn(name = "friend_id")
     )
-    private List<Cat> friends;
+    private List<Cat> friends = new ArrayList<>();
 }

@@ -1,6 +1,5 @@
 package CatsAndOwners.util.mapper;
 
-import CatsAndOwners.dao.cat.CatDao;
 import CatsAndOwners.model.dto.cat.CatShortDto;
 import CatsAndOwners.model.dto.cat.request.CreateCatDto;
 import CatsAndOwners.model.dto.cat.request.UpdateCatDto;
@@ -9,7 +8,6 @@ import CatsAndOwners.model.entity.Cat;
 import CatsAndOwners.model.entity.Owner;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static CatsAndOwners.util.mapper.OwnerMapper.toOwnerShortDto;
@@ -50,18 +48,14 @@ public class CatMapper {
         return cat;
     }
 
-    public static Cat toEntity(UpdateCatDto dto, Cat existingCat, CatDao catDao) {
+    public static Cat toEntity(UpdateCatDto dto, Cat existingCat) {
         List<Cat> friends = dto.getFriends().stream()
                 .map(shortDto -> {
-                    Cat friend = catDao.findOne(shortDto.getId());
-                    if (friend != null && !friend.getFriends().contains(existingCat)) {
-                        friend.getFriends().add(existingCat);
-                        catDao.update(friend);
-                    }
+                    Cat friend = new Cat();
+                    friend.setId(shortDto.getId());
                     return friend;
                 })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .toList();
 
         existingCat.setFriends(friends);
 
